@@ -14,7 +14,7 @@ scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis
 gcp_info = dict(st.secrets["gcp_service_account"])
 creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=scope)
 client = gspread.authorize(creds)
-sheet = client.open("golf_data_log").sheet1 
+sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1
 
 # Sidebar navigation buttons
 st.sidebar.markdown("## 📁 Menu")
