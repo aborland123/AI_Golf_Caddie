@@ -1,19 +1,26 @@
 import streamlit as st
 import pandas as pd
-import os
+import json
 from datetime import datetime
+import gspread
+from google.oauth2 import service_account
+from gspread_dataframe import set_with_dataframe
 
-# Set up page
+# Set up Streamlit page
 st.set_page_config(page_title="AI Golf Caddie Tracker 🏌🏻‍♀️", layout="centered")
 
-# Sidebar styling
-st.sidebar.markdown("## 📁 Menu")
+# Set up Google Sheets connection via Streamlit Secrets
+scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+gcp_info = json.loads(st.secrets["gcp_service_account"].to_json())
+creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=scope)
+client = gspread.authorize(creds)
+sheet = client.open("golf_data_log").sheet1 
 
-# Navigation buttons in the sidebar
+# Sidebar navigation buttons
+st.sidebar.markdown("## 📁 Menu")
 home_btn = st.sidebar.button("🏠 Home", use_container_width=True)
 add_entry_btn = st.sidebar.button("➕ Add Data Entry", use_container_width=True)
 
-# Navigation logic
 if home_btn:
     st.session_state["page"] = "home"
 elif add_entry_btn:
@@ -21,9 +28,6 @@ elif add_entry_btn:
 
 if "page" not in st.session_state:
     st.session_state["page"] = "home"
-
-# CSV path
-file_path = "golf_data.csv"
 
 # ---------------- HOME PAGE ---------------- #
 if st.session_state["page"] == "home":
@@ -59,7 +63,6 @@ elif st.session_state["page"] == "add":
 
         submitted = st.form_submit_button("Save Entry")
 
-    # Save logic
     required_fields = [practice_type, location, wind_dir]
     if submitted:
         if all(required_fields):
@@ -81,11 +84,10 @@ elif st.session_state["page"] == "add":
                 "Comments": [comments]
             })
 
-            if not os.path.exists(file_path):
-                new_data.to_csv(file_path, index=False)
-            else:
-                new_data.to_csv(file_path, mode="a", header=False, index=False)
+            existing_data = pd.DataFrame(sheet.get_all_records())
+            updated_data = pd.concat([existing_data, new_data], ignore_index=True)
+            set_with_dataframe(sheet, updated_data)
 
-            st.success("Data saved!")
+            st.success("✅ Entry saved to Google Sheets!")
         else:
-            st.error("Please fill out all required fields before saving.")
+            st.error("⚠️ Please fill out all required fields before saving.")
