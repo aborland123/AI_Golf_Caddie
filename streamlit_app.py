@@ -12,8 +12,8 @@ file_path = "golf_data.csv"
 if menu == "Home 🏠":
     st.title("🏌️‍♂️ AI Golf Caddie Tracker")
 
-elif menu == "Add Golf Data":
-    st.title("➕ Add Golf Data")
+elif menu == "Add Golf Data 🏌🏻‍♀️":
+    st.title("Add Golf Data 🏌🏻‍♀️")
 
     with st.form("practice_form"):
         practice_type = st.selectbox("Practice Type", [
