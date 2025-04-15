@@ -36,7 +36,7 @@ if "page" not in st.session_state:
 # ---------------- HOME PAGE ---------------- #
 if st.session_state["page"] == "home":
     st.title("🏌️‍♂️ AI Golf Caddie Tracker")
-    st.markdown("Welcome! Use the sidebar to add a new golf practice session.")
+    st.markdown("Hi Alli and friends.")
 
 # ---------------- ADD ENTRY PAGE ---------------- #
 elif st.session_state["page"] == "add":
