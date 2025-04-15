@@ -11,7 +11,7 @@ st.set_page_config(page_title="AI Golf Caddie Tracker 🏌🏻‍♀️", layout
 
 # Set up Google Sheets connection via Streamlit Secrets
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-gcp_info = json.loads(st.secrets["gcp_service_account"].to_json())
+gcp_info = dict(st.secrets["gcp_service_account"])
 creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=scope)
 client = gspread.authorize(creds)
 sheet = client.open("golf_data_log").sheet1 
