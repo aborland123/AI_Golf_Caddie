@@ -3,17 +3,36 @@ import pandas as pd
 import os
 from datetime import datetime
 
-## titles
-st.set_page_config(page_title="AI Golf Caddie Tracker", layout="centered")
-menu = st.sidebar.selectbox("Sidebar", ["Home 🏠", "Add Golf Data 🏌🏻‍♀️"])
+# Set up page
+st.set_page_config(page_title="AI Golf Caddie Tracker 🏌🏻‍♀️", layout="centered")
 
+# Sidebar styling
+st.sidebar.markdown("## 📁 Menu")
+
+# Navigation buttons in the sidebar
+home_btn = st.sidebar.button("🏠 Home", use_container_width=True)
+add_entry_btn = st.sidebar.button("➕ Add Data Entry", use_container_width=True)
+
+# Navigation logic
+if home_btn:
+    st.session_state["page"] = "home"
+elif add_entry_btn:
+    st.session_state["page"] = "add"
+
+if "page" not in st.session_state:
+    st.session_state["page"] = "home"
+
+# CSV path
 file_path = "golf_data.csv"
 
-if menu == "Home 🏠":
+# ---------------- HOME PAGE ---------------- #
+if st.session_state["page"] == "home":
     st.title("🏌️‍♂️ AI Golf Caddie Tracker")
+    st.markdown("Welcome! Use the sidebar to add a new golf practice session.")
 
-elif menu == "Add Golf Data 🏌🏻‍♀️":
-    st.title("Add Golf Data 🏌🏻‍♀️")
+# ---------------- ADD ENTRY PAGE ---------------- #
+elif st.session_state["page"] == "add":
+    st.title("➕ Add New Data Entry")
 
     with st.form("practice_form"):
         practice_type = st.selectbox("Practice Type", [
@@ -40,7 +59,7 @@ elif menu == "Add Golf Data 🏌🏻‍♀️":
 
         submitted = st.form_submit_button("Save Entry")
 
-    # Validate required fields
+    # Save logic
     required_fields = [practice_type, location, wind_dir]
     if submitted:
         if all(required_fields):
@@ -67,6 +86,6 @@ elif menu == "Add Golf Data 🏌🏻‍♀️":
             else:
                 new_data.to_csv(file_path, mode="a", header=False, index=False)
 
-            st.success("✅ Entry saved to golf_data.csv!")
+            st.success("Data saved!")
         else:
-            st.error("⚠️ Please fill out all required fields before saving.")
+            st.error("Please fill out all required fields before saving.")
