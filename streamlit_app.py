@@ -6,186 +6,115 @@ import gspread
 from google.oauth2 import service_account
 from gspread_dataframe import set_with_dataframe
 
-# -------------------- CONFIG & AUTH --------------------
+# ---------------- SETUP ---------------- #
 st.set_page_config(page_title="AI Golf Caddie Tracker 🏌️‍♀️", layout="centered")
 
+# Google Auth + Sheets
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 gcp_info = dict(st.secrets["gcp_service_account"])
 creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=scope)
 client = gspread.authorize(creds)
+swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1  # golf_shot_data_log
 
-# Google Sheets
-sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1  # Session data
-swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1  # Swings
+# Timezone
+eastern = pytz.timezone("US/Eastern")
+now = datetime.now(eastern)
 
-# -------------------- NAVIGATION --------------------
+# ---------------- SIDEBAR NAV ---------------- #
 st.sidebar.markdown("## 📁 Menu")
 home_btn = st.sidebar.button("Home 🏠", use_container_width=True)
-add_entry_btn = st.sidebar.button("Add Data Entry ➕", use_container_width=True)
-log_swing_btn = st.sidebar.button("Log Swing 📝", use_container_width=True)
+log_swing_btn = st.sidebar.button("Swing Logger 📝", use_container_width=True)
 
 if home_btn:
     st.session_state["page"] = "home"
-elif add_entry_btn:
-    st.session_state["page"] = "add"
 elif log_swing_btn:
     st.session_state["page"] = "swing"
 if "page" not in st.session_state:
     st.session_state["page"] = "home"
 
-# -------------------- HOME --------------------
+# ---------------- HOME ---------------- #
 if st.session_state["page"] == "home":
     st.title("AI Golf Caddie Tracker 🏌️‍♀️")
-    st.markdown("Welcome back, Alli 👋")
+    st.markdown("Welcome back, Alli! Use the menu to log swings. ⛳")
 
-# -------------------- ADD DATA ENTRY PAGE --------------------
-elif st.session_state["page"] == "add":
-    st.title("Add New Data Entry ➕")
-
-    with st.form("practice_form", clear_on_submit=True):
-        practice_type = st.selectbox("Practice Type", ["", "Driving Range", "9-Hole Course", "18-Hole Course"])
-        location = st.text_input("Location (e.g. TopGolf Charlotte)")
-        ball_used = st.text_input("Ball Used (optional)")
-        comments = st.text_area("Comments (optional)")
-
-        st.markdown("---")
-        st.subheader("Weather & Environment 🌤️")
-
-        avg_temp = st.number_input("Average Temperature (°F)", min_value=30, max_value=120)
-        feels_like = st.number_input("Feels Like Temperature (°F)", min_value=30, max_value=120)
-        uv_index = st.number_input("UV Index", min_value=0.0, max_value=11.0, step=0.1)
-        wind_speed = st.number_input("Wind Speed (MPH)", min_value=0.0, step=0.5)
-        wind_gusts = st.number_input("Wind Gusts (MPH)", min_value=0.0, step=0.5)
-        wind_dir = st.text_input("Wind Direction (e.g. N, NW, SE)")
-        humidity = st.number_input("Humidity (%)", min_value=0, max_value=100)
-        aqi = st.number_input("Air Quality Index (AQI)", min_value=0, max_value=500)
-
-        submitted = st.form_submit_button("Save Entry")
-
-    required_fields = [practice_type, location, wind_dir]
-    if submitted:
-        if all(required_fields):
-            eastern = pytz.timezone("US/Eastern")
-            now = datetime.now(eastern)
-            new_data = pd.DataFrame({
-                "Date": [now.strftime("%Y-%m-%d")],
-                "Start Time": [now.strftime("%H:%M")],
-                "End Time": [now.strftime("%H:%M")],
-                "Practice Type": [practice_type],
-                "Location": [location],
-                "Ball Used": [ball_used],
-                "Avg Temp (°F)": [avg_temp],
-                "Feels Like (°F)": [feels_like],
-                "UV Index": [uv_index],
-                "Wind Speed (MPH)": [wind_speed],
-                "Wind Gusts (MPH)": [wind_gusts],
-                "Wind Direction": [wind_dir],
-                "Humidity (%)": [humidity],
-                "AQI": [aqi],
-                "Comments": [comments]
-            })
-
-            existing_data = pd.DataFrame(sheet.get_all_records())
-            updated_data = pd.concat([existing_data, new_data], ignore_index=True)
-            set_with_dataframe(sheet, updated_data)
-
-            st.success("✅ Entry saved to Google Sheets!")
-            st.info("🎉 That was submitted.")
-        else:
-            st.error("⚠️ Please fill out all required fields before saving.")
-
-# -------------------- SWING LOGGER PAGE --------------------
+# ---------------- SWING LOGGER ---------------- #
 elif st.session_state["page"] == "swing":
     st.title("Swing Direction Logger 📝")
 
-    with st.expander("Start New Session 📋"):
-        location_input = st.text_input("Practice Location (e.g. TopGolf)", key="swing_location")
-        if st.button("Start New Session 🔄"):
-            eastern = pytz.timezone("US/Eastern")
-            now = datetime.now(eastern)
-            today_str = now.strftime("%Y-%m-%d")
+    with st.expander("📋 Start New Session"):
+        location_input = st.text_input("Practice Location (e.g. TopGolf)")
+        practice_type = st.selectbox("Practice Type", ["Driving Range", "9 Holes", "18 Holes"])
+        if st.button("🔄 Start Session"):
             session_id = f"{location_input.lower().replace(' ', '')}{now.strftime('%m%d')}"
-
-            all_swings = pd.DataFrame(swing_sheet.get_all_records())
-
-            if not all_swings.empty and "Date" in all_swings.columns and "Location" in all_swings.columns:
-                recent_session = all_swings[
-                    (all_swings["Date"] == today_str) &
-                    (all_swings["Location"].str.lower() == location_input.lower())
-                ]
-                swing_start = recent_session["Shot #"].max() + 1 if not recent_session.empty else 1
-            else:
-                recent_session = pd.DataFrame()
-                swing_start = 1
-
             st.session_state.session_id = session_id
-            st.session_state.swing_count = swing_start
-            st.session_state.last_club = ""
-            st.session_state.last_direction = "Straight"
+            st.session_state.swing_count = 1
+            st.session_state.practice_type = practice_type
             st.session_state.location = location_input
-            st.success(f"✅ New session started: {session_id} | Shot #{swing_start}")
+            st.success(f"✅ Session started: {session_id} | Practice: {practice_type}")
 
-    if "session_id" not in st.session_state:
-        st.info("👆 Start a new session to begin logging swings.")
-    else:
+    if "session_id" in st.session_state:
         st.subheader("Log New Swing 🎯")
 
-        # Get last values
-        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
-        direction_list = ["Straight", "Left", "Right"]
+        # Common inputs
+        club = st.selectbox("Club Used", ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"])
+        direction = st.radio("Direction", ["Straight", "Left", "Right"], horizontal=True)
+        feel = st.radio("How did it feel?", ["Bad", "Okay", "Good"], horizontal=True)
+        notes = st.text_input("Notes (optional)")
 
-        if "last_club" not in st.session_state:
-            st.session_state.last_club = ""
-        if "last_direction" not in st.session_state:
-            st.session_state.last_direction = "Straight"
+        # Practice-type-specific fields
+        yardage = None
+        hole_number = None
+        shot_on_hole = None
+        par = None
+        tee_color = None
 
-        default_club = st.session_state.last_club
-        default_dir = st.session_state.last_direction
+        if st.session_state.practice_type == "Driving Range":
+            yardage = st.number_input("Estimated Yardage (Optional)", min_value=0, step=1)
 
-        with st.form("swing_logger", clear_on_submit=True):
-            club = st.selectbox("Club Used", club_list, index=club_list.index(default_club))
-            direction = st.radio("Direction", direction_list, horizontal=True, index=direction_list.index(default_dir))
-            comment = st.text_input("Notes (optional)")
-            submit_swing = st.form_submit_button("Save Swing")
+        elif st.session_state.practice_type in ["9 Holes", "18 Holes"]:
+            hole_number = st.number_input("Hole Number", min_value=1, max_value=18, step=1)
+            shot_on_hole = st.number_input("Shot # on This Hole", min_value=1, step=1)
+            yardage = st.number_input("Yardage of Hole", min_value=0, step=1)
+            par = st.selectbox("Par", [3, 4, 5])
+            tee_color = st.selectbox("Tee Color", ["Red", "White", "Blue", "Gold", "Other"])
 
-        if submit_swing:
-            if club:
-                st.session_state.last_club = club
-                st.session_state.last_direction = direction
+        # Save swing
+        if st.button("✅ Save Swing"):
+            new_row = pd.DataFrame({
+                "Session ID": [st.session_state.session_id],
+                "Practice Type": [st.session_state.practice_type],
+                "Date": [now.strftime("%Y-%m-%d")],
+                "Time": [now.strftime("%H:%M:%S")],
+                "Location": [st.session_state.location],
+                "Club": [club],
+                "Direction": [direction],
+                "Feel": [feel],
+                "Notes": [notes],
+                "Hole #": [hole_number],
+                "Shot # on Hole": [shot_on_hole],
+                "Hole Yardage": [yardage],
+                "Par": [par],
+                "Tee Color": [tee_color]
+            })
 
-                eastern = pytz.timezone("US/Eastern")
-                now = datetime.now(eastern)
+            existing_data = pd.DataFrame(swing_sheet.get_all_records())
+            updated_data = pd.concat([existing_data, new_row], ignore_index=True)
+            set_with_dataframe(swing_sheet, updated_data)
 
-                new_row = pd.DataFrame({
-                    "Session ID": [st.session_state.session_id],
-                    "Shot #": [st.session_state.swing_count],
-                    "Date": [now.strftime("%Y-%m-%d")],
-                    "Time": [now.strftime("%H:%M:%S")],
-                    "Location": [st.session_state.location],
-                    "Club": [club],
-                    "Direction": [direction],
-                    "Notes": [comment]
-                })
+            st.success("✅ Swing saved!")
+            st.session_state.swing_count += 1
 
-                existing_data = pd.DataFrame(swing_sheet.get_all_records())
-                updated_data = pd.concat([existing_data, new_row], ignore_index=True)
-                set_with_dataframe(swing_sheet, updated_data)
-
-                st.success(f"✅ Shot #{st.session_state.swing_count} saved.")
-                st.info("🎉 That was submitted.")
-                st.session_state.swing_count += 1
-            else:
-                st.error("⚠️ Please select a club.")
-
-        # Show data
+        # Show recent swings
         all_data = pd.DataFrame(swing_sheet.get_all_records())
         if not all_data.empty:
             st.divider()
-            st.subheader("Latest Swings 📈")
+            st.subheader("📈 Latest Swings")
             recent = all_data[all_data["Session ID"] == st.session_state.session_id].tail(10)
             st.dataframe(recent, use_container_width=True)
 
             st.divider()
-            st.subheader("Shot Direction Summary 📊")
+            st.subheader("📊 Shot Direction Summary")
             direction_counts = recent["Direction"].value_counts(normalize=True).mul(100).round(1).to_frame(name="%")
             st.bar_chart(direction_counts)
+    else:
+        st.info("Start a session above to begin logging swings.")
