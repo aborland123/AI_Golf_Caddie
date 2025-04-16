@@ -140,11 +140,11 @@ elif st.session_state["page"] == "swing":
                 "Time": [now.strftime("%H:%M:%S")],
                 "Location": [st.session_state.location],
                 "Club": [club],
+                "Shot # on Hole": [shot_on_hole],
                 "Direction": [direction],
                 "Feel": [feel],
                 "Notes": [notes],
                 "Hole #": [hole_number],
-                "Shot # on Hole": [shot_on_hole],
                 "Hole Yardage": [yardage],
                 "Par": [par],
                 "Tee Color": [tee_color]
