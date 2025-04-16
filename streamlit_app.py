@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 from datetime import datetime, timedelta
+import pytz
 import gspread
 from google.oauth2 import service_account
 from gspread_dataframe import set_with_dataframe
@@ -14,8 +15,8 @@ gcp_info = dict(st.secrets["gcp_service_account"])
 creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=scope)
 client = gspread.authorize(creds)
 
-sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1  # golf_data_log
-swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1  # golf_shot_data_log
+sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1
+swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1
 
 # -------------------- NAVIGATION --------------------
 st.sidebar.markdown("## 📁 Menu")
@@ -65,7 +66,8 @@ elif st.session_state["page"] == "add":
     required_fields = [practice_type, location, wind_dir]
     if submitted:
         if all(required_fields):
-            now = datetime.now()
+            eastern = pytz.timezone("US/Eastern")
+            now = datetime.now(eastern)
             new_data = pd.DataFrame({
                 "Date": [now.strftime("%Y-%m-%d")],
                 "Start Time": [now.strftime("%H:%M")],
@@ -97,38 +99,48 @@ elif st.session_state["page"] == "add":
 elif st.session_state["page"] == "swing":
     st.title("📝 Swing Direction Logger")
 
-    # Reset button to start new session
-    if st.button("🔄 Start New Session"):
-        now = datetime.now()
-        session_id = f"session{now.strftime('%m%d%H%M')}"
-        st.session_state.session_id = session_id
-        st.session_state.swing_count = 1
-        st.session_state.last_club = ""
-        st.success(f"✅ New session started: {session_id}")
+    with st.expander("📋 Start New Session"):
+        location_input = st.text_input("Practice Location (e.g. TopGolf)", key="swing_location")
+        if st.button("🔄 Start New Session"):
+            eastern = pytz.timezone("US/Eastern")
+            now = datetime.now(eastern)
+            session_id = f"{location_input.lower().replace(' ', '')}{now.strftime('%m%d')}"
+            st.session_state.session_id = session_id
+            st.session_state.swing_count = 1
+            st.session_state.last_club = ""
+            st.session_state.last_direction = "Straight"
+            st.session_state.location = location_input
+            st.success(f"✅ New session started: {session_id}")
 
     if "session_id" not in st.session_state:
         st.info("👆 Start a new session to begin logging swings.")
     else:
         st.subheader("🎯 Log New Swing")
 
+        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
+        club_index = 0
+        if "last_club" in st.session_state and st.session_state.last_club in club_list:
+            club_index = club_list.index(st.session_state.last_club)
+
         with st.form("swing_logger", clear_on_submit=True):
-            club = st.selectbox("Club Used", ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"], 
-                                index=0 if "last_club" not in st.session_state else
-                                ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"].index(st.session_state.get("last_club", "")))
-            direction = st.radio("Direction", ["Straight", "Left", "Right"], horizontal=True)
+            club = st.selectbox("Club Used", club_list, index=club_index)
+            direction = st.radio("Direction", ["Straight", "Left", "Right"], horizontal=True,
+                                 index=["Straight", "Left", "Right"].index(st.session_state.get("last_direction", "Straight")))
             comment = st.text_input("Notes (optional)")
             submit_swing = st.form_submit_button("Save Swing")
 
         if submit_swing:
             if club:
                 st.session_state.last_club = club
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                date = datetime.now().strftime("%Y-%m-%d")
+                st.session_state.last_direction = direction
+                eastern = pytz.timezone("US/Eastern")
+                now = datetime.now(eastern)
                 new_row = pd.DataFrame({
                     "Session ID": [st.session_state.session_id],
                     "Shot #": [st.session_state.swing_count],
-                    "Date": [date],
-                    "Time": [timestamp],
+                    "Date": [now.strftime("%Y-%m-%d")],
+                    "Time": [now.strftime("%H:%M:%S")],
+                    "Location": [st.session_state.location],
                     "Club": [club],
                     "Direction": [direction],
                     "Notes": [comment]
