@@ -20,9 +20,9 @@ swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg")
 
 # -------------------- NAVIGATION --------------------
 st.sidebar.markdown("## 📁 Menu")
-home_btn = st.sidebar.button("🏠 Home", use_container_width=True)
-add_entry_btn = st.sidebar.button("➕ Add Data Entry", use_container_width=True)
-log_swing_btn = st.sidebar.button("📝 Log Swing", use_container_width=True)
+home_btn = st.sidebar.button("Home 🏠", use_container_width=True)
+add_entry_btn = st.sidebar.button("Add Data Entry ➕", use_container_width=True)
+log_swing_btn = st.sidebar.button("Log Swing 📝", use_container_width=True)
 
 if home_btn:
     st.session_state["page"] = "home"
@@ -35,12 +35,12 @@ if "page" not in st.session_state:
 
 # -------------------- HOME --------------------
 if st.session_state["page"] == "home":
-    st.title("🏌️‍♂️ AI Golf Caddie Tracker")
+    st.title("AI Golf Caddie Tracker 🏌️‍♀️")
     st.markdown("Welcome back, Alli 👋")
 
 # -------------------- ADD DATA ENTRY PAGE --------------------
 elif st.session_state["page"] == "add":
-    st.title("➕ Add New Data Entry")
+    st.title("Add New Data Entry ➕")
 
     with st.form("practice_form", clear_on_submit=True):
         practice_type = st.selectbox("Practice Type", ["", "Driving Range", "9-Hole Course", "18-Hole Course"])
@@ -49,7 +49,7 @@ elif st.session_state["page"] == "add":
         comments = st.text_area("Comments (optional)")
 
         st.markdown("---")
-        st.subheader("🌤️ Weather & Environment")
+        st.subheader("Weather & Environment 🌤️")
 
         avg_temp = st.number_input("Average Temperature (°F)", min_value=30, max_value=120)
         feels_like = st.number_input("Feels Like Temperature (°F)", min_value=30, max_value=120)
@@ -94,25 +94,29 @@ elif st.session_state["page"] == "add":
         else:
             st.error("⚠️ Please fill out all required fields before saving.")
 
-# -------------------- SWING LOGGER --------------------
+# -------------------- SWING LOGGER PAGE --------------------
 elif st.session_state["page"] == "swing":
-    st.title("📝 Swing Direction Logger")
+    st.title("Swing Direction Logger 📝")
 
-    with st.expander("📋 Start New Session"):
+    with st.expander("Start New Session 📋"):
         location_input = st.text_input("Practice Location (e.g. TopGolf)", key="swing_location")
-        if st.button("🔄 Start New Session"):
+        if st.button("Start New Session 🔄"):
             eastern = pytz.timezone("US/Eastern")
             now = datetime.now(eastern)
             today_str = now.strftime("%Y-%m-%d")
             session_id = f"{location_input.lower().replace(' ', '')}{now.strftime('%m%d')}"
 
             all_swings = pd.DataFrame(swing_sheet.get_all_records())
-            recent_session = all_swings[
-                (all_swings["Date"] == today_str) &
-                (all_swings["Location"].str.lower() == location_input.lower())
-            ]
 
-            swing_start = recent_session["Shot #"].max() + 1 if not recent_session.empty else 1
+            if not all_swings.empty and "Date" in all_swings.columns and "Location" in all_swings.columns:
+                recent_session = all_swings[
+                    (all_swings["Date"] == today_str) &
+                    (all_swings["Location"].str.lower() == location_input.lower())
+                ]
+                swing_start = recent_session["Shot #"].max() + 1 if not recent_session.empty else 1
+            else:
+                recent_session = pd.DataFrame()
+                swing_start = 1
 
             st.session_state.session_id = session_id
             st.session_state.swing_count = swing_start
@@ -124,22 +128,23 @@ elif st.session_state["page"] == "swing":
     if "session_id" not in st.session_state:
         st.info("👆 Start a new session to begin logging swings.")
     else:
-        st.subheader("🎯 Log New Swing")
+        st.subheader("Log New Swing 🎯")
 
-        # Remember last club + direction
+        # Get last values
+        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
+        direction_list = ["Straight", "Left", "Right"]
+
         if "last_club" not in st.session_state:
             st.session_state.last_club = ""
         if "last_direction" not in st.session_state:
             st.session_state.last_direction = "Straight"
 
-        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
-        default_club_index = club_list.index(st.session_state.last_club) if st.session_state.last_club in club_list else 0
-        direction_list = ["Straight", "Left", "Right"]
-        default_direction_index = direction_list.index(st.session_state.last_direction)
+        default_club = st.session_state.last_club
+        default_dir = st.session_state.last_direction
 
         with st.form("swing_logger", clear_on_submit=True):
-            club = st.selectbox("Club Used", club_list, index=default_club_index)
-            direction = st.radio("Direction", direction_list, horizontal=True, index=default_direction_index)
+            club = st.selectbox("Club Used", club_list, index=club_list.index(default_club))
+            direction = st.radio("Direction", direction_list, horizontal=True, index=direction_list.index(default_dir))
             comment = st.text_input("Notes (optional)")
             submit_swing = st.form_submit_button("Save Swing")
 
@@ -172,14 +177,15 @@ elif st.session_state["page"] == "swing":
             else:
                 st.error("⚠️ Please select a club.")
 
+        # Show data
         all_data = pd.DataFrame(swing_sheet.get_all_records())
         if not all_data.empty:
             st.divider()
-            st.subheader("📈 Latest Swings")
+            st.subheader("Latest Swings 📈")
             recent = all_data[all_data["Session ID"] == st.session_state.session_id].tail(10)
             st.dataframe(recent, use_container_width=True)
 
             st.divider()
-            st.subheader("📊 Shot Direction Summary")
+            st.subheader("Shot Direction Summary 📊")
             direction_counts = recent["Direction"].value_counts(normalize=True).mul(100).round(1).to_frame(name="%")
             st.bar_chart(direction_counts)
