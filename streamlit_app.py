@@ -133,19 +133,17 @@ elif st.session_state["page"] == "swing":
 
         with st.form("swing_logger", clear_on_submit=True):
             club = st.selectbox("Club Used", club_list, index=club_index)
-            direction = st.radio(
-                "Direction",
-                ["Straight", "Left", "Right"],
-                horizontal=True,
-                key="selected_direction"
-            )
+            direction_list = ["Straight", "Left", "Right"]
+            default_dir = st.session_state.get("last_direction", "Straight")
+            direction_index = direction_list.index(default_dir)
+            direction = st.radio("Direction", direction_list, horizontal=True, index=direction_index)
             comment = st.text_input("Notes (optional)")
             submit_swing = st.form_submit_button("Save Swing")
 
         if submit_swing:
             if club:
                 st.session_state.last_club = club
-                st.session_state.last_direction = st.session_state.selected_direction
+                st.session_state.last_direction = direction
                 eastern = pytz.timezone("US/Eastern")
                 now = datetime.now(eastern)
 
