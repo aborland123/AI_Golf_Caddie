@@ -6,7 +6,7 @@ import gspread
 from google.oauth2 import service_account
 from gspread_dataframe import set_with_dataframe
 
-# Setup
+# -------------------- CONFIG & AUTH --------------------
 st.set_page_config(page_title="AI Golf Caddie Tracker 🏌️‍♀️", layout="centered")
 
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -15,10 +15,10 @@ creds = service_account.Credentials.from_service_account_info(gcp_info, scopes=s
 client = gspread.authorize(creds)
 
 # Google Sheets
-sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1
-swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1
+sheet = client.open_by_key("1u2UvRf98JBITQOFPXOKXhzK70r1bQPewLzeuvkU8CwQ").sheet1  # Session data
+swing_sheet = client.open_by_key("1yZTaRmJxKgcwNoo87ojVaHNbcHuSIIHT8OcBXwCsYCg").sheet1  # Swings
 
-# Sidebar navigation
+# -------------------- NAVIGATION --------------------
 st.sidebar.markdown("## 📁 Menu")
 home_btn = st.sidebar.button("🏠 Home", use_container_width=True)
 add_entry_btn = st.sidebar.button("➕ Add Data Entry", use_container_width=True)
@@ -94,6 +94,7 @@ elif st.session_state["page"] == "add":
         else:
             st.error("⚠️ Please fill out all required fields before saving.")
 
+# -------------------- SWING LOGGER --------------------
 elif st.session_state["page"] == "swing":
     st.title("📝 Swing Direction Logger")
 
@@ -125,18 +126,20 @@ elif st.session_state["page"] == "swing":
     else:
         st.subheader("🎯 Log New Swing")
 
-        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
-        default_club = st.session_state.get("last_club", "")
-        default_dir = st.session_state.get("last_direction", "Straight")
+        # Remember last club + direction
+        if "last_club" not in st.session_state:
+            st.session_state.last_club = ""
+        if "last_direction" not in st.session_state:
+            st.session_state.last_direction = "Straight"
 
-        club_index = club_list.index(default_club) if default_club in club_list else 0
+        club_list = ["", "Driver", "3 Wood", "5 Iron", "7 Iron", "9 Iron", "Pitching Wedge", "Putter"]
+        default_club_index = club_list.index(st.session_state.last_club) if st.session_state.last_club in club_list else 0
+        direction_list = ["Straight", "Left", "Right"]
+        default_direction_index = direction_list.index(st.session_state.last_direction)
 
         with st.form("swing_logger", clear_on_submit=True):
-            club = st.selectbox("Club Used", club_list, index=club_index)
-            direction_list = ["Straight", "Left", "Right"]
-            default_dir = st.session_state.get("last_direction", "Straight")
-            direction_index = direction_list.index(default_dir)
-            direction = st.radio("Direction", direction_list, horizontal=True, index=direction_index)
+            club = st.selectbox("Club Used", club_list, index=default_club_index)
+            direction = st.radio("Direction", direction_list, horizontal=True, index=default_direction_index)
             comment = st.text_input("Notes (optional)")
             submit_swing = st.form_submit_button("Save Swing")
 
@@ -144,6 +147,7 @@ elif st.session_state["page"] == "swing":
             if club:
                 st.session_state.last_club = club
                 st.session_state.last_direction = direction
+
                 eastern = pytz.timezone("US/Eastern")
                 now = datetime.now(eastern)
 
